@@ -78,14 +78,14 @@ jobs:
 
       - name: Upload Binaries (macOS)
         if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.2 #Explicit Version
         with:
           name: tesseract-binaries-${{ matrix.arch }}
           path: tesseract-binaries-${{ matrix.arch }}.zip
 
       - name: Upload Binaries (Windows)
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.2 #Explicit Version
         with:
           name: tesseract-binaries-windows
           path: tesseract-binaries-windows.zip
