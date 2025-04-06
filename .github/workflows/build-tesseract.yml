@@ -1,0 +1,91 @@
+name: Build Tesseract Binaries
+
+on:
+  push:
+    branches:
+      - main # Or whatever your main branch is
+  workflow_dispatch: # Allows manual triggering of the workflow
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-latest
+            arch: x86_64
+          - os: macos-latest
+            arch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install automake libtool pkg-config leptonica
+
+      - name: Install Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install automake libtool pkgconfig mingw
+
+      - name: Configure and Build Tesseract (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ./autogen.sh
+          ./configure --prefix=./build --enable-shared
+          make -j$(nproc)
+          make install
+        env:
+          MACOSX_DEPLOYMENT_TARGET: 11.0 # Adjust as needed
+          CFLAGS: "-arch ${{ matrix.arch }}"
+          CXXFLAGS: "-arch ${{ matrix.arch }}"
+          LDFLAGS: "-arch ${{ matrix.arch }}"
+
+      - name: Configure and Build Tesseract (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          ./autogen.sh
+          ./configure --prefix=./build --enable-shared
+          make -j$(nproc)
+          make install
+        shell: bash
+        env:
+          PATH: /c/msys64/mingw64/bin:/c/msys64/usr/bin:/c/msys64/bin:/c/msys64/opt/bin:/c/msys64/local/bin:/c/msys64/usr/local/bin:/c/msys64/mingw64/libexec/gcc/x86_64-w64-mingw32/10.3.0:/c/msys64/mingw64/libexec/gcc/x86_64-w64-mingw32:/c/msys64/mingw64/libexec:/c/msys64/mingw64/include
+          CFLAGS: "-I/c/msys64/mingw64/include"
+          CXXFLAGS: "-I/c/msys64/mingw64/include"
+          LDFLAGS: "-L/c/msys64/mingw64/lib"
+
+      - name: Archive Binaries (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir tesseract-binaries
+          cp build/bin/tesseract tesseract-binaries/tesseract-${{ matrix.arch }}
+          cp build/lib/libtesseract.dylib tesseract-binaries/libtesseract.dylib-${{ matrix.arch }}
+          zip tesseract-binaries-${{ matrix.arch }}.zip tesseract-binaries/*
+
+      - name: Archive Binaries (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir tesseract-binaries
+          cp build/bin/tesseract.exe tesseract-binaries/tesseract.exe
+          cp build/bin/libtesseract-5.dll tesseract-binaries/libtesseract-5.dll
+          zip tesseract-binaries-windows.zip tesseract-binaries/*
+
+      - name: Upload Binaries (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v3
+        with:
+          name: tesseract-binaries-${{ matrix.arch }}
+          path: tesseract-binaries-${{ matrix.arch }}.zip
+
+      - name: Upload Binaries (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v3
+        with:
+          name: tesseract-binaries-windows
+          path: tesseract-binaries-windows.zip
